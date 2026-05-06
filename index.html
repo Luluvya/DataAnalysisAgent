@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DataAnalysisAgent · 商品销售数据分析</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<style>
+:root {
+  --bg: #f0f4f8;
+  --surface: #ffffff;
+  --primary: #2563eb;
+  --primary-light: #3b82f6;
+  --primary-pale: #eff6ff;
+  --primary-pale2: #dbeafe;
+  --green: #16a34a;
+  --green-pale: #f0fdf4;
+  --orange: #ea580c;
+  --text: #1e293b;
+  --text2: #475569;
+  --text3: #94a3b8;
+  --border: rgba(30,41,59,0.08);
+  --border2: rgba(37,99,235,0.18);
+  --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow2: 0 8px 32px rgba(30,41,59,0.10);
+  --mono: 'DM Mono', monospace;
+  --body: 'Noto Sans SC', sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:var(--body);background:var(--bg);color:var(--text);min-height:100vh;}
+
+nav{background:white;border-bottom:1px solid var(--border);padding:0 40px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.nav-logo{font-size:17px;font-weight:700;color:var(--primary);display:flex;align-items:center;gap:8px;}
+.nav-badge{font-family:var(--mono);font-size:9px;background:var(--primary-pale);color:var(--primary);border:1px solid var(--border2);border-radius:10px;padding:3px 8px;}
+
+.hero{max-width:1100px;margin:0 auto;padding:40px 40px 24px;}
+.hero h1{font-size:32px;font-weight:700;margin-bottom:8px;}
+.hero h1 span{color:var(--primary);}
+.hero p{font-size:13px;color:var(--text2);line-height:1.8;}
+
+.main{max-width:1100px;margin:0 auto;padding:0 40px 60px;display:grid;grid-template-columns:340px 1fr;gap:20px;}
+
+/* 左侧控制面板 */
+.control-panel{display:flex;flex-direction:column;gap:16px;}
+.card{background:white;border:1px solid var(--border);border-radius:14px;padding:20px;box-shadow:var(--shadow);}
+.card-title{font-size:13px;font-weight:700;color:var(--text2);margin-bottom:14px;display:flex;align-items:center;gap:6px;}
+
+.upload-zone{border:2px dashed var(--border2);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:all 0.2s;background:var(--primary-pale);position:relative;}
+.upload-zone:hover{border-color:var(--primary);background:#e0eaff;}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+.upload-zone p{font-size:12px;color:var(--primary);font-weight:600;margin-top:6px;}
+.upload-zone .icon{font-size:28px;}
+.upload-status{font-size:11px;color:var(--text3);margin-top:8px;min-height:16px;}
+.upload-status.ok{color:var(--green);}
+
+.preview-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:10px;overflow:hidden;border-radius:8px;border:1px solid var(--border);}
+.preview-table th{background:#f8faff;color:var(--text3);font-weight:600;padding:6px 8px;text-align:left;border-bottom:1px solid var(--border);}
+.preview-table td{padding:5px 8px;border-bottom:1px solid #f1f5f9;color:var(--text2);}
+
+.btn{width:100%;padding:12px;border-radius:10px;border:none;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;font-family:var(--body);}
+.btn-primary{background:var(--primary);color:white;}
+.btn-primary:hover{background:#1d4ed8;transform:translateY(-1px);}
+.btn-primary:disabled{background:#94a3b8;cursor:not-allowed;transform:none;}
+.btn-secondary{background:var(--primary-pale);color:var(--primary);border:1px solid var(--border2);}
+.btn-secondary:hover{background:var(--primary);color:white;}
+
+.progress-wrap{margin-top:8px;}
+.progress-bar-bg{background:#f1f5f9;border-radius:10px;height:8px;overflow:hidden;}
+.progress-bar{background:linear-gradient(90deg,var(--primary),var(--primary-light));height:100%;border-radius:10px;transition:width 0.5s ease;}
+.progress-text{font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono);}
+
+.log-box{background:#0f172a;border-radius:8px;padding:12px;height:160px;overflow-y:auto;font-family:var(--mono);font-size:10px;color:#94a3b8;line-height:1.8;}
+.log-box .log-ok{color:#4ade80;}
+.log-box .log-err{color:#f87171;}
+.log-box .log-info{color:#60a5fa;}
+
+/* 右侧结果面板 */
+.result-panel{}
+.tabs{display:flex;gap:4px;margin-bottom:16px;background:white;padding:4px;border-radius:10px;border:1px solid var(--border);}
+.tab{padding:7px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text3);transition:all 0.2s;border:none;background:transparent;font-family:var(--body);}
+.tab.active{background:var(--primary);color:white;}
+.tab:hover:not(.active){color:var(--text);background:#f1f5f9;}
+
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+
+/* 任务列表 */
+.task-list{display:flex;flex-direction:column;gap:8px;}
+.task-item{background:white;border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;}
+.task-icon{width:28px;height:28px;border-radius:8px;background:var(--primary-pale);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.task-text{font-size:12px;color:var(--text2);}
+.task-status{margin-left:auto;font-size:10px;padding:2px 8px;border-radius:6px;font-weight:600;}
+.status-done{background:var(--green-pale);color:var(--green);}
+.status-running{background:var(--primary-pale);color:var(--primary);}
+.status-wait{background:#f8fafc;color:var(--text3);}
+
+/* 图表网格 */
+.figures-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.figure-card{background:white;border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--shadow);}
+.figure-card img{width:100%;display:block;}
+.figure-label{padding:8px 12px;font-size:11px;color:var(--text2);border-top:1px solid var(--border);background:#fafafa;}
+
+/* 报告 */
+.report-wrap{background:white;border:1px solid var(--border);border-radius:12px;padding:28px;box-shadow:var(--shadow);}
+.report-wrap h1{font-size:22px;font-weight:700;color:var(--text);margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--primary-pale2);}
+.report-wrap h2{font-size:16px;font-weight:700;color:var(--primary);margin:20px 0 10px;}
+.report-wrap h3{font-size:14px;font-weight:700;color:var(--text);margin:14px 0 8px;}
+.report-wrap p{font-size:13px;color:var(--text2);line-height:1.9;margin-bottom:10px;}
+.report-wrap img{max-width:100%;border-radius:8px;margin:10px 0;border:1px solid var(--border);}
+.report-wrap strong{color:var(--text);}
+.report-wrap ul,.report-wrap ol{padding-left:20px;margin-bottom:10px;}
+.report-wrap li{font-size:13px;color:var(--text2);line-height:1.9;margin-bottom:4px;}
+
+.empty-state{text-align:center;padding:60px 20px;color:var(--text3);}
+.empty-state .icon{font-size:48px;margin-bottom:12px;}
+.empty-state p{font-size:13px;}
+
+@media(max-width:900px){.main{grid-template-columns:1fr;}.figures-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">📊 DataAnalysisAgent<span class="nav-badge">Plan-and-Solve · ReAct · LangGraph</span></div>
+</nav>
+
+<div class="hero">
+  <h1>商品销售数据<span>智能分析</span></h1>
+  <p>基于 LangGraph Plan-and-Solve + ReAct 架构，三Agent流水线自动完成数据探查、多维度分析与专业报告生成。</p>
+</div>
+
+<div class="main">
+  <!-- 左侧控制面板 -->
+  <div class="control-panel">
+
+    <!-- 数据上传 -->
+    <div class="card">
+      <div class="card-title">📁 数据输入</div>
+      <div class="upload-zone" id="uploadZone">
+        <div class="icon">📤</div>
+        <p>点击上传 CSV 文件</p>
+        <input type="file" accept=".csv" onchange="handleUpload(event)">
+      </div>
+      <div class="upload-status" id="uploadStatus">未上传</div>
+      <div id="previewWrap" style="display:none;margin-top:10px;overflow-x:auto;"></div>
+    </div>
+
+    <!-- 示例数据 -->
+    <div class="card">
+      <div class="card-title">🎲 示例数据</div>
+      <button class="btn btn-secondary" onclick="generateSample()">生成示例商品销售数据</button>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px;">包含3900条记录，涵盖服装/配饰/鞋类/外套四大品类，华东/华南/华北/华西/华中五大区域</div>
+    </div>
+
+    <!-- 运行控制 -->
+    <div class="card">
+      <div class="card-title">🚀 运行分析</div>
+      <button class="btn btn-primary" id="analyzeBtn" onclick="startAnalysis()" disabled>开始分析</button>
+      <div class="progress-wrap" id="progressWrap" style="display:none;">
+        <div style="height:10px;"></div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar" id="progressBar" style="width:0%"></div>
+        </div>
+        <div class="progress-text" id="progressText">0%</div>
+      </div>
+    </div>
+
+    <!-- 运行日志 -->
+    <div class="card">
+      <div class="card-title">📋 运行日志</div>
+      <div class="log-box" id="logBox">等待分析启动...</div>
+    </div>
+  </div>
+
+  <!-- 右侧结果面板 -->
+  <div class="result-panel">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('tasks')">📋 分析任务</button>
+      <button class="tab" onclick="switchTab('figures')">📊 可视化图表</button>
+      <button class="tab" onclick="switchTab('report')">📄 分析报告</button>
+    </div>
+
+    <!-- 任务列表 -->
+    <div class="tab-content active" id="tab-tasks">
+      <div class="empty-state" id="tasksEmpty">
+        <div class="icon">📋</div>
+        <p>上传数据后点击"开始分析"，PlanningAgent 将自动规划分析任务</p>
+      </div>
+      <div class="task-list" id="taskList" style="display:none;"></div>
+    </div>
+
+    <!-- 图表 -->
+    <div class="tab-content" id="tab-figures">
+      <div class="empty-state" id="figuresEmpty">
+        <div class="icon">📊</div>
+        <p>分析完成后，AnalysisAgent 生成的可视化图表将在这里展示</p>
+      </div>
+      <div class="figures-grid" id="figuresGrid" style="display:none;"></div>
+    </div>
+
+    <!-- 报告 -->
+    <div class="tab-content" id="tab-report">
+      <div class="empty-state" id="reportEmpty">
+        <div class="icon">📄</div>
+        <p>分析完成后，ReportAgent 生成的专业分析报告将在这里展示</p>
+      </div>
+      <div class="report-wrap" id="reportContent" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const BACKEND_URL = 'https://your-backend.onrender.com'; // 替换为Render后端地址
+let pollTimer = null;
+let dataLoaded = false;
+
+// ── 上传CSV ──────────────────────────────────────────────
+async function handleUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('uploadStatus');
+  statusEl.textContent = '解析中...';
+  statusEl.className = 'upload-status';
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const resp = await fetch(BACKEND_URL + '/upload-csv', { method: 'POST', body: formData });
+    const data = await resp.json();
+    statusEl.textContent = `✓ ${file.name}（${data.rows}行，${data.columns.length}列）已加载`;
+    statusEl.className = 'upload-status ok';
+    renderPreview(data.columns, data.preview);
+    enableAnalyze();
+  } catch(e) {
+    statusEl.textContent = '上传失败，请检查后端连接';
+  }
+}
+
+// ── 生成示例数据 ─────────────────────────────────────────
+async function generateSample() {
+  const statusEl = document.getElementById('uploadStatus');
+  statusEl.textContent = '生成中...';
+  try {
+    const resp = await fetch(BACKEND_URL + '/generate-sample', { method: 'POST' });
+    const data = await resp.json();
+    statusEl.textContent = `✓ 示例数据已生成（${data.rows}行，${data.columns.length}列）`;
+    statusEl.className = 'upload-status ok';
+    renderPreview(data.columns, data.preview);
+    enableAnalyze();
+  } catch(e) {
+    statusEl.textContent = '生成失败，请检查后端连接';
+  }
+}
+
+// ── 渲染预览表格 ─────────────────────────────────────────
+function renderPreview(columns, rows) {
+  const wrap = document.getElementById('previewWrap');
+  const cols = columns.slice(0, 5); // 最多显示5列
+  let html = '<table class="preview-table"><thead><tr>';
+  cols.forEach(c => html += `<th>${c}</th>`);
+  if (columns.length > 5) html += `<th>...</th>`;
+  html += '</tr></thead><tbody>';
+  rows.slice(0, 3).forEach(row => {
+    html += '<tr>';
+    cols.forEach(c => html += `<td>${row[c] ?? ''}</td>`);
+    if (columns.length > 5) html += '<td>...</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+  wrap.style.display = 'block';
+}
+
+function enableAnalyze() {
+  dataLoaded = true;
+  document.getElementById('analyzeBtn').disabled = false;
+}
+
+// ── 开始分析 ─────────────────────────────────────────────
+async function startAnalysis() {
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('progressWrap').style.display = 'block';
+  document.getElementById('logBox').textContent = '';
+  appendLog('info', '🚀 启动分析流程...');
+
+  // 重置结果
+  document.getElementById('tasksEmpty').style.display = 'block';
+  document.getElementById('taskList').style.display = 'none';
+  document.getElementById('figuresEmpty').style.display = 'block';
+  document.getElementById('figuresGrid').style.display = 'none';
+  document.getElementById('reportEmpty').style.display = 'block';
+  document.getElementById('reportContent').style.display = 'none';
+
+  try {
+    await fetch(BACKEND_URL + '/analyze', { method: 'POST' });
+    pollTimer = setInterval(pollStatus, 1500);
+  } catch(e) {
+    appendLog('err', '❌ 启动失败，请检查后端连接');
+    document.getElementById('analyzeBtn').disabled = false;
+  }
+}
+
+// ── 轮询状态 ─────────────────────────────────────────────
+async function pollStatus() {
+  try {
+    const resp = await fetch(BACKEND_URL + '/status');
+    const state = await resp.json();
+
+    updateProgress(state.progress);
+    updateLogs(state.logs);
+
+    if (state.tasks.length > 0) renderTasks(state.tasks, state.results);
+    if (state.figures.length > 0) renderFigures(state.figures);
+    if (state.report) renderReport(state.report);
+
+    if (state.status === 'done' || state.status === 'error') {
+      clearInterval(pollTimer);
+      document.getElementById('analyzeBtn').disabled = false;
+      if (state.status === 'done') {
+        switchTab('report');
+      }
+    }
+  } catch(e) {
+    console.error('轮询失败:', e);
+  }
+}
+
+// ── 更新进度条 ───────────────────────────────────────────
+function updateProgress(pct) {
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('progressText').textContent = pct + '%';
+}
+
+// ── 更新日志 ─────────────────────────────────────────────
+let lastLogCount = 0;
+function updateLogs(logs) {
+  if (logs.length <= lastLogCount) return;
+  const box = document.getElementById('logBox');
+  const newLogs = logs.slice(lastLogCount);
+  newLogs.forEach(log => {
+    const span = document.createElement('div');
+    if (log.includes('✅') || log.includes('完成')) span.className = 'log-ok';
+    else if (log.includes('❌') || log.includes('错误')) span.className = 'log-err';
+    else span.className = 'log-info';
+    span.textContent = log;
+    box.appendChild(span);
+  });
+  box.scrollTop = box.scrollHeight;
+  lastLogCount = logs.length;
+}
+
+function appendLog(type, msg) {
+  const box = document.getElementById('logBox');
+  const span = document.createElement('div');
+  span.className = type === 'ok' ? 'log-ok' : type === 'err' ? 'log-err' : 'log-info';
+  span.textContent = msg;
+  box.appendChild(span);
+  box.scrollTop = box.scrollHeight;
+}
+
+// ── 渲染任务列表 ─────────────────────────────────────────
+const taskIcons = ['🔍', '📊', '👥', '🗺️', '🔗', '📈'];
+function renderTasks(tasks, results) {
+  const list = document.getElementById('taskList');
+  const empty = document.getElementById('tasksEmpty');
+  list.innerHTML = '';
+  tasks.forEach((task, i) => {
+    const isDone = results.some(r => r.task === task);
+    const div = document.createElement('div');
+    div.className = 'task-item';
+    div.innerHTML = `
+      <div class="task-icon">${taskIcons[i] || '📌'}</div>
+      <div class="task-text">${task}</div>
+      <span class="task-status ${isDone ? 'status-done' : 'status-wait'}">${isDone ? '完成' : '等待'}</span>
+    `;
+    list.appendChild(div);
+  });
+  empty.style.display = 'none';
+  list.style.display = 'flex';
+}
+
+// ── 渲染图表 ─────────────────────────────────────────────
+let lastFigCount = 0;
+function renderFigures(figures) {
+  if (figures.length <= lastFigCount) return;
+  const grid = document.getElementById('figuresGrid');
+  const empty = document.getElementById('figuresEmpty');
+  const newFigs = figures.slice(lastFigCount);
+  newFigs.forEach(fig => {
+    const div = document.createElement('div');
+    div.className = 'figure-card';
+    div.innerHTML = `
+      <img src="${fig.b64}" alt="${fig.task}" loading="lazy">
+      <div class="figure-label">${fig.task}</div>
+    `;
+    grid.appendChild(div);
+  });
+  empty.style.display = 'none';
+  grid.style.display = 'grid';
+  lastFigCount = figures.length;
+}
+
+// ── 渲染报告 ─────────────────────────────────────────────
+function renderReport(markdown) {
+  const content = document.getElementById('reportContent');
+  const empty = document.getElementById('reportEmpty');
+  content.innerHTML = marked.parse(markdown);
+  empty.style.display = 'none';
+  content.style.display = 'block';
+}
+
+// ── Tab切换 ──────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const names = ['tasks', 'figures', 'report'];
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+</script>
+</body>
+</html>

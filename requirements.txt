@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+httpx
+python-multipart
+langgraph
+langchain-core
+pandas
+matplotlib
+numpy
+python-dotenv
